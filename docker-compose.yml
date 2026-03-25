@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+
+  fl_server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: fl_server
+    ports:
+      - "8080:8080"
+
+  benign_vehicle:
+    build:
+      context: .
+      dockerfile: Dockerfile.vehicle
+    container_name: benign_vehicle
+    environment:
+      - VEHICLE_ID=1
+      - SERVER_ADDRESS=fl_server:8080
+    depends_on:
+      - fl_server
+
+  attacker_vehicle:
+    build:
+      context: .
+      dockerfile: Dockerfile.attacker
+    container_name: attacker_vehicle
+    environment:
+      - SERVER_ADDRESS=fl_server:8080
+    depends_on:
+      - fl_server

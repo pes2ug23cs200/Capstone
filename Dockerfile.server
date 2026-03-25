@@ -1,0 +1,13 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+RUN pip install \
+    flwr \
+    tensorflow-cpu\
+    numpy
+
+COPY server/ /app
+COPY shared/ /app/shared
+
+CMD ["python", "server.py"]
