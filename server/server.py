@@ -1,36 +1,35 @@
 import flwr as fl
 import numpy as np
 
-
 def krum(results, num_malicious=1):
-    """
-    results: list of (parameters, num_examples, metrics)
-    """
 
-    weights = [fl.common.parameters_to_ndarrays(r[0]) for r in results]
+    weights = [
+        fl.common.parameters_to_ndarrays(fit_res.parameters)
+        for _, fit_res in results
+    ]
 
     num_clients = len(weights)
-    distances = np.zeros((num_clients, num_clients))
-
-    # compute pairwise distances
-    for i in range(num_clients):
-        for j in range(i + 1, num_clients):
-            dist = sum(
-                np.linalg.norm(w1 - w2) for w1, w2 in zip(weights[i], weights[j])
-            )
-            distances[i][j] = dist
-            distances[j][i] = dist
-
-    # score each client
     scores = []
+
     for i in range(num_clients):
-        sorted_dist = np.sort(distances[i])
-        score = np.sum(sorted_dist[: num_clients - num_malicious - 1])
+        distances = []
+
+        for j in range(num_clients):
+            if i != j:
+                dist = sum(
+                    np.linalg.norm(w1 - w2)
+                    for w1, w2 in zip(weights[i], weights[j])
+                )
+                distances.append(dist)
+
+        distances.sort()
+
+        score = sum(distances[:num_clients - num_malicious - 2])
         scores.append(score)
 
-    # pick best client
-    krum_index = np.argmin(scores)
-    return weights[krum_index]
+    best_idx = int(np.argmin(scores))
+
+    return weights[best_idx]
 
 
 class KrumStrategy(fl.server.strategy.FedAvg):

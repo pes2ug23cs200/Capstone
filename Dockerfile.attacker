@@ -2,8 +2,18 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
+# 1. Upgrade pip
+RUN pip install --upgrade pip
+
+# 2. Install requirements (keeping it light)
 RUN pip install flwr numpy tensorflow-cpu
 
+# 3. Copy your specific application code
 COPY attacker/ /app
+COPY shared/ /app/shared
+
+# 4. IMPORTANT: Copy the model folder if attacker.py needs it!
+# If your model is in a folder called 'model' on your Desktop:
+COPY model/ /app/model
 
 CMD ["python", "attacker.py"]

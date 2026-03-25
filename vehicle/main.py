@@ -4,12 +4,12 @@ import flwr as fl
 import numpy as np
 import tensorflow as tf
 
-from v2v import generate_message
-from ids import detect
+from shared.v2v import generate_message
+from shared.ids import detect
 
 # load model
-model = tf.keras.models.load_model("model/ids_model.keras")
-
+model = tf.keras.models.load_model("model/model.keras")
+print("MODEL INPUT SHAPE:", model.input_shape)
 server = os.getenv("SERVER_ADDRESS", "fl_server:8080")
 vehicle_id = os.getenv("VEHICLE_ID", "1")
 
@@ -23,32 +23,25 @@ class VehicleClient(fl.client.NumPyClient):
 
     def fit(self, parameters, config):
 
-    # load global weights
+        print("=== ENTERING FIT ===")
+
         model.set_weights(parameters)
 
-        print("[Vehicle] Training locally")
-
-        losses = []
-
-        # simulate local training
-        for _ in range(5):
+        for i in range(5):
 
             msg = generate_message(benign=True)
 
-            # IMPORTANT: shape may need adjustment later
-            label = np.array([[0]])  # benign
+            print(f"[Vehicle] Message shape: {msg.shape}")
 
-            loss = model.train_on_batch(msg, label)
-            losses.append(loss)
+            try:
+                result = detect(model, msg)
+                print(f"[Vehicle] Prediction: {result}")
+            except Exception as e:
+                print("Prediction error:", e)
 
-            result = detect(model, msg)
-            print(f"[Vehicle] Message classified as: {result}")
+        print("=== EXITING FIT ===")
 
-        avg_loss = float(np.mean(losses))
-
-        print(f"[Vehicle] Avg loss: {avg_loss}")
-
-        return model.get_weights(), 10, {"loss": avg_loss}
+        return model.get_weights(), 10, {}
 
     def evaluate(self, parameters, config):
 
