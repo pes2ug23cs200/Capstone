@@ -2,6 +2,8 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
+RUN pip install --upgrade pip
+
 RUN pip install \
     flwr \
     tensorflow-cpu\
@@ -9,5 +11,7 @@ RUN pip install \
 
 COPY server/ /app
 COPY shared/ /app/shared
+COPY model/ /app/model
+COPY data/ /app/data
 
 CMD ["python", "server.py"]

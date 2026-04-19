@@ -1,5 +1,10 @@
 import flwr as fl
 import numpy as np
+import tensorflow as tf
+from shared.ids import detect
+
+# Load model for detection
+model = tf.keras.models.load_model("model/model.keras")
 
 def krum(results, num_malicious=1):
 
@@ -29,7 +34,7 @@ def krum(results, num_malicious=1):
 
     best_idx = int(np.argmin(scores))
 
-    return weights[best_idx]
+    return weights[best_idx], best_idx
 
 
 class KrumStrategy(fl.server.strategy.FedAvg):
@@ -38,8 +43,26 @@ class KrumStrategy(fl.server.strategy.FedAvg):
         if not results:
             return None, {}
 
+        # Check messages for malicious content
+        for client_id, fit_res in results:
+            if 'prediction' in fit_res.metrics and fit_res.metrics['prediction'] == "ATTACK":
+                print(f"[Server] ALERT: Malicious message detected by client {client_id}!")
+            if 'type' in fit_res.metrics and fit_res.metrics['type'] == "malicious":
+                print(f"[Server] Attacker sent malicious message in this round")
+
         # apply Krum
-        aggregated_weights = krum(results, num_malicious=1)
+        aggregated_weights, best_idx = krum(results, num_malicious=1)
+
+        # Log if malicious detected (assuming benign is index 0)
+        if best_idx != 0:
+            print("[SERVER] Malicious update detected and filtered")
+
+        # Assume benign vehicle is index 0, attacker is 1
+        best_idx = ...  # From krum, but krum returns weights, not index
+        # Need to modify krum to return index
+
+        # For now, log anomaly if scores indicate
+        print("[SERVER] Krum aggregation completed")
 
         return fl.common.ndarrays_to_parameters(aggregated_weights), {}
 

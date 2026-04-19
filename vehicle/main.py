@@ -4,6 +4,8 @@ import sys
 import flwr as fl
 import numpy as np
 import tensorflow as tf
+from flask import Flask, request
+import threading
 
 from shared.ids import detect
 
@@ -19,6 +21,29 @@ vehicle_id = os.getenv("VEHICLE_ID", "1")
 print(f"[Vehicle {vehicle_id}] Connecting to {server}")
 sys.stdout.flush()
 
+# Load benign dataset
+from shared.data_loader import load_dataset
+benign_data, _ = load_dataset("data/balanced_veremi_dataset.csv")
+benign_index = 0
+
+app = Flask(__name__)
+latest_message = None
+
+@app.route('/receive_message', methods=['POST'])
+def receive_message():
+    global latest_message
+    data = request.get_json()
+    latest_message = np.array(data['message'])
+    print(f"[Vehicle] Received message: {latest_message.shape}")
+    sys.stdout.flush()
+    return {'status': 'received'}
+
+def run_server():
+    app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
+
+# Start server in background
+threading.Thread(target=run_server, daemon=True).start()
+
 
 class VehicleClient(fl.client.NumPyClient):
 
@@ -27,41 +52,38 @@ class VehicleClient(fl.client.NumPyClient):
 
     def fit(self, parameters, config):
 
+        global benign_index, latest_message
+
         print("=== ENTERING FIT ===")
         sys.stdout.flush()
 
         model.set_weights(parameters)
 
-        for i in range(5):
+        # Use benign data for training
+        if benign_index >= len(benign_data):
+            benign_index = 0
+        msg = benign_data[benign_index]
+        benign_index += 1
 
-            # correct shape input
-            msg = np.random.rand(1, 20, 17)
+        # Reshape to (1, 20, 17)
+        msg = msg[np.newaxis, ...]
 
-            print(f"[Vehicle] Message shape: {msg.shape}")
+        # Train on benign data
+        model.train_on_batch(msg, np.array([[0]]))
+
+        # Detect the received message if any
+        result = "NO_MESSAGE"
+        if latest_message is not None:
+            received_msg = latest_message[np.newaxis, ...]
+            result = detect(model, received_msg)
+            print(f"[Vehicle] Received message classified as: {result}")
             sys.stdout.flush()
-
-            # TRAIN (important for FL)
-            model.train_on_batch(msg, np.array([[0]]))  # benign label
-
-            try:
-                # raw prediction
-                pred = model.predict(msg, verbose=0)
-
-                # IDS decision
-                result = detect(model, msg)
-
-                print(f"[Vehicle] Raw prediction: {pred}")
-                print(f"[Vehicle] Classified as: {result}")
-                sys.stdout.flush()
-
-            except Exception as e:
-                print("Prediction error:", e)
-                sys.stdout.flush()
+            latest_message = None  # Reset
 
         print("=== EXITING FIT ===")
         sys.stdout.flush()
 
-        return model.get_weights(), 10, {}
+        return model.get_weights(), 1, {"prediction": result}
 
     def evaluate(self, parameters, config):
 

@@ -15,6 +15,8 @@ services:
       context: .
       dockerfile: Dockerfile.vehicle
     container_name: benign_vehicle
+    ports:
+      - "5000:5000"
     environment:
       - VEHICLE_ID=1
       - SERVER_ADDRESS=fl_server:8080
