@@ -57,10 +57,6 @@ class KrumStrategy(fl.server.strategy.FedAvg):
         if best_idx != 0:
             print("[SERVER] Malicious update detected and filtered")
 
-        # Assume benign vehicle is index 0, attacker is 1
-        best_idx = ...  # From krum, but krum returns weights, not index
-        # Need to modify krum to return index
-
         # For now, log anomaly if scores indicate
         print("[SERVER] Krum aggregation completed")
 

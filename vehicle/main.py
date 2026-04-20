@@ -8,6 +8,8 @@ from flask import Flask, request
 import threading
 
 from shared.ids import detect
+from shared.synthetic_generator import generate_synthetic_benign_message, load_stats
+import json
 
 # load model
 model = tf.keras.models.load_model("model/model.keras")
@@ -21,10 +23,8 @@ vehicle_id = os.getenv("VEHICLE_ID", "1")
 print(f"[Vehicle {vehicle_id}] Connecting to {server}")
 sys.stdout.flush()
 
-# Load benign dataset
-from shared.data_loader import load_dataset
-benign_data, _ = load_dataset("data/balanced_veremi_dataset.csv")
-benign_index = 0
+# Load statistics for synthetic generation
+stats = load_stats()
 
 app = Flask(__name__)
 latest_message = None
@@ -52,18 +52,15 @@ class VehicleClient(fl.client.NumPyClient):
 
     def fit(self, parameters, config):
 
-        global benign_index, latest_message
+        global latest_message
 
         print("=== ENTERING FIT ===")
         sys.stdout.flush()
 
         model.set_weights(parameters)
 
-        # Use benign data for training
-        if benign_index >= len(benign_data):
-            benign_index = 0
-        msg = benign_data[benign_index]
-        benign_index += 1
+        # Generate synthetic benign message for training
+        msg = generate_synthetic_benign_message(stats, method="normal")
 
         # Reshape to (1, 20, 17)
         msg = msg[np.newaxis, ...]
